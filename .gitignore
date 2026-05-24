@@ -1,0 +1,10 @@
+.env
+bin/
+dist/
+*.log
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
