@@ -1,10 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment variables
 .env
-bin/
-dist/
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Logs
 *.log
 
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
+# Pytest
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# FastAPI / Uvicorn
+uvicorn.log
+
+# SQLite
+*.db
+
+# Node / frontend
+node_modules/
+frontend-extension/dist/
+frontend-extension/build/
+
+# Docker
+docker-data/
+
+# LangChain / AI temp
+.cache/
+tmp/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Misc
+*.swp
+*.swo
