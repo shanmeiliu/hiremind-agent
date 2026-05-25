@@ -5,12 +5,16 @@ from app.agents.llm_provider import get_llm
 from app.schemas.job import JobAnalyzeRequest, JobAnalyzeResponse
 
 
+
 class JobMatchState(TypedDict):
     request: JobAnalyzeRequest
     job_keywords: List[str]
     resume_keywords: List[str]
     matched_skills: List[str]
     missing_skills: List[str]
+    semantic_score: int
+    semantic_strengths: List[str]
+    transferable_skills: List[str]
     match_score: int
     recommendation: str
     decision: str
@@ -182,34 +186,136 @@ def compare_resume(state: JobMatchState) -> JobMatchState:
         "missing_skills": missing_skills,
     }
 
+def semantic_match(state: JobMatchState) -> JobMatchState:
+    request = state["request"]
+
+    fallback_score = 0
+    if state["job_keywords"]:
+        fallback_score = int(
+            (len(state["matched_skills"]) / len(state["job_keywords"])) * 100
+        )
+
+    fallback_strengths = [
+        f"Direct match found for {skill}."
+        for skill in state["matched_skills"]
+    ]
+
+    try:
+        llm = get_llm()
+
+        prompt = f"""
+You are a senior technical recruiter and backend engineering interviewer.
+
+Compare this job posting against the candidate resume.
+Focus on direct matches AND transferable backend/platform engineering experience.
+
+Return ONLY valid JSON with this exact schema:
+{{
+  "semantic_score": 0,
+  "semantic_strengths": [
+    "strength 1",
+    "strength 2"
+  ],
+  "transferable_skills": [
+    "transferable skill 1",
+    "transferable skill 2"
+  ]
+}}
+
+Rules:
+- semantic_score must be an integer from 0 to 100.
+- Do not exaggerate.
+- Do not invent experience.
+- Give credit for related experience, for example:
+  - SQS/SNS/Airflow can be relevant to async workflows.
+  - Elasticsearch/Splunk/Kibana can be relevant to observability.
+  - REST/SOAP API integration can be relevant to third-party API integration.
+  - AWS ECS/S3/SQS experience can partially transfer to Lambda/EventBridge.
+- Penalize important missing core requirements.
+- Keep each strength concise.
+
+Job skills:
+{state["job_keywords"]}
+
+Resume skills:
+{state["resume_keywords"]}
+
+Matched skills:
+{state["matched_skills"]}
+
+Missing skills:
+{state["missing_skills"]}
+
+Job description:
+{request.job_description}
+
+Resume text:
+{request.resume_text}
+"""
+
+        response = llm.invoke(prompt)
+        content = response.content if hasattr(response, "content") else str(response)
+        parsed = json.loads(content)
+
+        semantic_score = int(parsed.get("semantic_score", fallback_score))
+        semantic_strengths = parsed.get("semantic_strengths", fallback_strengths)
+        transferable_skills = parsed.get("transferable_skills", [])
+
+        if not isinstance(semantic_strengths, list):
+            semantic_strengths = fallback_strengths
+
+        if not isinstance(transferable_skills, list):
+            transferable_skills = []
+
+        semantic_score = max(0, min(100, semantic_score))
+
+    except Exception:
+        semantic_score = fallback_score
+        semantic_strengths = fallback_strengths
+        transferable_skills = []
+
+    return {
+        **state,
+        "semantic_score": semantic_score,
+        "semantic_strengths": [
+            str(item).strip()
+            for item in semantic_strengths
+            if str(item).strip()
+        ],
+        "transferable_skills": [
+            str(item).strip()
+            for item in transferable_skills
+            if str(item).strip()
+        ],
+    }
+
 
 def score_match(state: JobMatchState) -> JobMatchState:
     matched_count = len(state["matched_skills"])
     missing_count = len(state["missing_skills"])
     job_keyword_count = max(len(state["job_keywords"]), 1)
 
-    coverage_score = int((matched_count / job_keyword_count) * 100)
-
-    # Reward strong overlap, but do not over-penalize detailed LLM extraction.
-    score = coverage_score
+    keyword_coverage_score = int((matched_count / job_keyword_count) * 100)
 
     if matched_count >= 8:
-        score += 25
+        keyword_coverage_score += 25
     elif matched_count >= 5:
-        score += 15
+        keyword_coverage_score += 15
     elif matched_count >= 3:
-        score += 8
+        keyword_coverage_score += 8
 
-    # Small penalty only. Missing skills are useful for gap analysis,
-    # but they should not destroy the score when many detailed skills are extracted.
-    score -= min(missing_count * 1, 10)
+    keyword_coverage_score -= min(missing_count * 1, 10)
+    keyword_coverage_score = max(0, min(95, keyword_coverage_score))
 
+    semantic_score = state.get("semantic_score", keyword_coverage_score)
+
+    score = int((keyword_coverage_score * 0.45) + (semantic_score * 0.55))
     score = max(0, min(95, score))
 
     if score >= 80:
         recommendation = "Strong Match"
         decision = "apply"
-        decision_reason = "The role has strong alignment with the candidate's existing skills and experience."
+        decision_reason = "The role has strong alignment with the candidate's existing and transferable skills."
     elif score >= 55:
         recommendation = "Potential Match"
         decision = "maybe"
@@ -226,7 +332,6 @@ def score_match(state: JobMatchState) -> JobMatchState:
         "decision": decision,
         "decision_reason": decision_reason,
     }
-
 
 def generate_notes(state: JobMatchState) -> JobMatchState:
     request = state["request"]
@@ -311,11 +416,13 @@ def build_job_match_graph():
     graph.add_node("compare_resume", compare_resume)
     graph.add_node("score_match", score_match)
     graph.add_node("generate_notes", generate_notes)
+    graph.add_node("semantic_match", semantic_match)
 
     graph.set_entry_point("parse_job")
 
     graph.add_edge("parse_job", "compare_resume")
-    graph.add_edge("compare_resume", "score_match")
+    graph.add_edge("compare_resume", "semantic_match")
+    graph.add_edge("semantic_match", "score_match")
     graph.add_edge("score_match", "generate_notes")
     graph.add_edge("generate_notes", END)
 
@@ -332,6 +439,9 @@ def analyze_job_match(request: JobAnalyzeRequest) -> JobAnalyzeResponse:
     "resume_keywords": [],
     "matched_skills": [],
     "missing_skills": [],
+    "semantic_score": 0,
+    "semantic_strengths": [],
+    "transferable_skills": [],
     "match_score": 0,
     "recommendation": "",
     "decision": "",
