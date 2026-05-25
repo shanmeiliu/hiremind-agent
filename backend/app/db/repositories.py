@@ -29,3 +29,11 @@ def create_job_analysis(
     db.refresh(job_analysis)
 
     return job_analysis
+
+def list_job_analyses(db: Session, limit: int = 20) -> list[JobAnalysis]:
+    return (
+        db.query(JobAnalysis)
+        .order_by(JobAnalysis.created_at.desc())
+        .limit(limit)
+        .all()
+    )

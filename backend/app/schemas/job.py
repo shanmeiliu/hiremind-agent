@@ -19,3 +19,11 @@ class JobAnalyzeResponse(BaseModel):
     strengths: List[str]
     missing_skills: List[str]
     application_notes: List[str]
+
+class JobAnalysisListItem(BaseModel):
+    id: int
+    job_title: str
+    company: str | None = None
+    recommendation: str
+    decision: str
+    match_score: int
