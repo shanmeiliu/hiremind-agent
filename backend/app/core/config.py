@@ -6,7 +6,10 @@ load_dotenv()
 
 class Settings:
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai_compatible")
-
+    DATABASE_URL: str = os.getenv(
+    "DATABASE_URL",
+    "postgresql+psycopg://postgres:postgres@localhost:5432/hiremind_db",
+    )
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 

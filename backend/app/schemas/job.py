@@ -12,6 +12,10 @@ class JobAnalyzeRequest(BaseModel):
 class JobAnalyzeResponse(BaseModel):
     match_score: int
     recommendation: str
+    decision: str
+    decision_reason: str
+    job_skills: List[str]
+    resume_skills: List[str]
     strengths: List[str]
     missing_skills: List[str]
     application_notes: List[str]

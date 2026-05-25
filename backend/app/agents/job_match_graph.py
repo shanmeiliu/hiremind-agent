@@ -1,5 +1,5 @@
 from typing import TypedDict, List
-
+import json
 from langgraph.graph import StateGraph, END
 from app.agents.llm_provider import get_llm
 from app.schemas.job import JobAnalyzeRequest, JobAnalyzeResponse
@@ -13,6 +13,8 @@ class JobMatchState(TypedDict):
     missing_skills: List[str]
     match_score: int
     recommendation: str
+    decision: str
+    decision_reason: str
     application_notes: List[str]
 
 
@@ -78,15 +80,23 @@ def score_match(state: JobMatchState) -> JobMatchState:
 
     if score >= 80:
         recommendation = "Strong Match"
+        decision = "apply"
+        decision_reason = "The role has strong alignment with the candidate's existing skills and experience."
     elif score >= 60:
         recommendation = "Potential Match"
+        decision = "maybe"
+        decision_reason = "The role has some relevant overlap, but there are missing skills to review before applying."
     else:
         recommendation = "Weak Match"
+        decision = "skip"
+        decision_reason = "The role does not currently show enough alignment with the candidate's resume."
 
     return {
         **state,
         "match_score": score,
         "recommendation": recommendation,
+        "decision": decision,
+        "decision_reason": decision_reason,
     }
 
 
@@ -107,7 +117,24 @@ def generate_notes(state: JobMatchState) -> JobMatchState:
         prompt = f"""
 You are an AI job application assistant.
 
-Analyze this job match and generate concise application notes.
+Generate application notes for this job match.
+
+Return ONLY valid JSON with this exact schema:
+{{
+  "application_notes": [
+    "note 1",
+    "note 2",
+    "note 3"
+  ]
+}}
+
+Rules:
+- Return 3 to 5 notes.
+- Each note must be one sentence.
+- Do not use markdown.
+- Do not exaggerate experience.
+- Do not invent skills.
+- Focus on how the candidate should position their experience.
 
 Job title:
 {request.job_title}
@@ -126,24 +153,18 @@ Job description:
 
 Resume text:
 {request.resume_text}
-
-Return 3 to 5 short bullet points.
-Focus on how the candidate should position their experience.
-Do not exaggerate experience.
-Do not invent skills.
 """
 
         response = llm.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
 
-        notes = [
-            line.strip("-• ").strip()
-            for line in content.splitlines()
-            if line.strip()
-        ]
+        parsed = json.loads(content)
+        notes = parsed.get("application_notes", [])
 
-        if not notes:
+        if not isinstance(notes, list) or not notes:
             notes = fallback_notes
+
+        notes = [str(note).strip() for note in notes if str(note).strip()]
 
     except Exception as exc:
         notes = fallback_notes + [
@@ -154,7 +175,6 @@ Do not invent skills.
         **state,
         "application_notes": notes[:5],
     }
-
 
 def build_job_match_graph():
     graph = StateGraph(JobMatchState)
@@ -179,21 +199,27 @@ job_match_graph = build_job_match_graph()
 
 def analyze_job_match(request: JobAnalyzeRequest) -> JobAnalyzeResponse:
     initial_state: JobMatchState = {
-        "request": request,
-        "job_keywords": [],
-        "resume_keywords": [],
-        "matched_skills": [],
-        "missing_skills": [],
-        "match_score": 0,
-        "recommendation": "",
-        "application_notes": [],
-    }
+    "request": request,
+    "job_keywords": [],
+    "resume_keywords": [],
+    "matched_skills": [],
+    "missing_skills": [],
+    "match_score": 0,
+    "recommendation": "",
+    "decision": "",
+    "decision_reason": "",
+    "application_notes": [],
+}
 
     final_state = job_match_graph.invoke(initial_state)
 
     return JobAnalyzeResponse(
         match_score=final_state["match_score"],
         recommendation=final_state["recommendation"],
+        decision=final_state["decision"],
+        decision_reason=final_state["decision_reason"],
+        job_skills=final_state["job_keywords"],
+        resume_skills=final_state["resume_keywords"],
         strengths=[
             f"Experience matches job requirement: {skill}"
             for skill in final_state["matched_skills"]
