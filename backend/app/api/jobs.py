@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Depends
+import json
+from fastapi import APIRouter, Depends, HTTPException
+from app.db.repositories import create_job_analysis, list_job_analyses, get_job_analysis_by_id
+from app.schemas.job import (
+    JobAnalyzeRequest,
+    JobAnalyzeResponse,
+    JobAnalysisListItem,
+    JobAnalysisDetail,
+)
 from sqlalchemy.orm import Session
 from typing import List
-from app.db.repositories import create_job_analysis, list_job_analyses
-from app.schemas.job import JobAnalyzeRequest, JobAnalyzeResponse, JobAnalysisListItem
 from app.agents.job_match_graph import analyze_job_match
 from app.db.database import SessionLocal
-from app.db.repositories import create_job_analysis
-from app.schemas.job import JobAnalyzeRequest, JobAnalyzeResponse
+
 
 router = APIRouter()
 
@@ -52,3 +57,28 @@ async def get_job_analyses(
         )
         for item in analyses
     ]
+
+@router.get("/analyses/{analysis_id}", response_model=JobAnalysisDetail)
+async def get_job_analysis(
+    analysis_id: int,
+    db: Session = Depends(get_db),
+):
+    item = get_job_analysis_by_id(db=db, analysis_id=analysis_id)
+
+    if item is None:
+        raise HTTPException(status_code=404, detail="Job analysis not found")
+
+    return JobAnalysisDetail(
+        id=item.id,
+        job_title=item.job_title,
+        company=item.company,
+        recommendation=item.recommendation,
+        decision=item.decision,
+        decision_reason=getattr(item, "decision_reason", None),
+        match_score=item.match_score,
+        job_description=item.job_description,
+        resume_text=item.resume_text,
+        strengths=json.loads(item.strengths or "[]"),
+        missing_skills=json.loads(item.missing_skills or "[]"),
+        application_notes=json.loads(item.application_notes or "[]"),
+    )

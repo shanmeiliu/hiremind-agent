@@ -21,27 +21,138 @@ class JobMatchState(TypedDict):
 TRACKED_SKILLS = [
     "python",
     "fastapi",
+    "flask",
+    "django",
+    "typescript",
+    "javascript",
+    "node",
+    "node.js",
+    "express",
+    "react",
+    "aws",
+    "lambda",
+    "eventbridge",
+    "sqs",
+    "sns",
+    "s3",
+    "ecs",
+    "eks",
+    "docker",
+    "kubernetes",
+    "postgres",
+    "postgresql",
+    "mysql",
+    "mongodb",
+    "dynamodb",
+    "redis",
+    "graphql",
+    "rest",
+    "api",
+    "third-party api",
+    "integration",
+    "async workflow",
+    "event-driven",
+    "distributed systems",
+    "idempotency",
+    "retries",
+    "eventual consistency",
+    "observability",
+    "logging",
+    "metrics",
+    "tracing",
+    "cloudwatch",
+    "new relic",
     "langchain",
     "langgraph",
     "rag",
-    "postgres",
     "pgvector",
-    "aws",
-    "docker",
-    "react",
-    "typescript",
-    "redis",
-    "kubernetes",
     "llm",
     "openai",
 ]
 
+SKILL_ALIASES = {
+    "aws lambda": ["lambda", "aws"],
+    "eventbridge": ["aws", "event-driven"],
+    "api integration": ["api", "integration", "rest"],
+    "async workflows": ["async workflow", "sqs", "sns", "airflow"],
+    "structured logging": ["logging", "elasticsearch", "splunk", "kibana"],
+    "observability": ["logging", "metrics", "tracing", "elasticsearch", "splunk", "kibana"],
+    "postgresql": ["postgresql", "postgres"],
+    "node.js": ["node.js", "node"],
+    "distributed systems": ["microservices", "sqs", "sns", "kafka", "redis"],
+    "bidirectional sync": ["integration", "api", "etl"],
+}
+def extract_json_array_from_llm(content: str, key: str) -> list[str]:
+    try:
+        parsed = json.loads(content)
+        values = parsed.get(key, [])
+
+        if not isinstance(values, list):
+            return []
+
+        return [
+            str(value).strip().lower()
+            for value in values
+            if str(value).strip()
+        ]
+    except Exception:
+        return []
 
 def parse_job(state: JobMatchState) -> JobMatchState:
     request = state["request"]
     job_text = request.job_description.lower()
 
-    job_keywords = [skill for skill in TRACKED_SKILLS if skill in job_text]
+    fallback_keywords = [
+        skill for skill in TRACKED_SKILLS
+        if skill in job_text
+    ]
+
+    try:
+        llm = get_llm()
+
+        prompt = f"""
+You are a technical recruiter assistant.
+
+Extract the most important technical skills, tools, platforms, databases,
+cloud services, architecture patterns, and engineering practices from this job post.
+
+Return ONLY valid JSON with this exact schema:
+{{
+  "job_skills": [
+    "skill 1",
+    "skill 2",
+    "skill 3"
+  ]
+}}
+
+Rules:
+- Return 8 to 20 skills.
+- Use lowercase.
+- Keep skills concise.
+- Include cloud services, databases, frameworks, architecture patterns, and observability tools.
+- Do not include soft skills.
+- Do not include generic words like "engineering" or "platform".
+- Do not use markdown.
+
+Job title:
+{request.job_title}
+
+Company:
+{request.company or "Unknown"}
+
+Job description:
+{request.job_description}
+"""
+
+        response = llm.invoke(prompt)
+        content = response.content if hasattr(response, "content") else str(response)
+
+        llm_keywords = extract_json_array_from_llm(content, "job_skills")
+
+        job_keywords = llm_keywords or fallback_keywords
+
+    except Exception:
+        job_keywords = fallback_keywords
 
     return {
         **state,
@@ -55,10 +166,13 @@ def compare_resume(state: JobMatchState) -> JobMatchState:
 
     resume_keywords = [skill for skill in TRACKED_SKILLS if skill in resume_text]
     matched_skills = [
-        skill for skill in state["job_keywords"] if skill in resume_keywords
-    ]
+    skill for skill in state["job_keywords"]
+    if skill_matches(skill, resume_keywords)
+        ]
+
     missing_skills = [
-        skill for skill in state["job_keywords"] if skill not in resume_keywords
+    skill for skill in state["job_keywords"]
+    if not skill_matches(skill, resume_keywords)
     ]
 
     return {
@@ -75,17 +189,31 @@ def score_match(state: JobMatchState) -> JobMatchState:
     job_keyword_count = max(len(state["job_keywords"]), 1)
 
     coverage_score = int((matched_count / job_keyword_count) * 100)
-    penalty = missing_count * 3
-    score = max(0, min(95, coverage_score - penalty))
+
+    # Reward strong overlap, but do not over-penalize detailed LLM extraction.
+    score = coverage_score
+
+    if matched_count >= 8:
+        score += 25
+    elif matched_count >= 5:
+        score += 15
+    elif matched_count >= 3:
+        score += 8
+
+    # Small penalty only. Missing skills are useful for gap analysis,
+    # but they should not destroy the score when many detailed skills are extracted.
+    score -= min(missing_count * 1, 10)
+
+    score = max(0, min(95, score))
 
     if score >= 80:
         recommendation = "Strong Match"
         decision = "apply"
         decision_reason = "The role has strong alignment with the candidate's existing skills and experience."
-    elif score >= 60:
+    elif score >= 55:
         recommendation = "Potential Match"
         decision = "maybe"
-        decision_reason = "The role has some relevant overlap, but there are missing skills to review before applying."
+        decision_reason = "The role has relevant overlap, but there are missing skills to review before applying."
     else:
         recommendation = "Weak Match"
         decision = "skip"
@@ -230,3 +358,25 @@ def analyze_job_match(request: JobAnalyzeRequest) -> JobAnalyzeResponse:
         ],
         application_notes=final_state["application_notes"],
     )
+
+def skill_matches(job_skill: str, resume_skills: list[str]) -> bool:
+    normalized_job_skill = job_skill.strip().lower()
+    normalized_resume_skills = {
+        skill.strip().lower()
+        for skill in resume_skills
+    }
+
+    if normalized_job_skill in normalized_resume_skills:
+        return True
+
+    aliases = SKILL_ALIASES.get(normalized_job_skill, [])
+
+    for alias in aliases:
+        if alias in normalized_resume_skills:
+            return True
+
+    for resume_skill in normalized_resume_skills:
+        if normalized_job_skill in resume_skill or resume_skill in normalized_job_skill:
+            return True
+
+    return False

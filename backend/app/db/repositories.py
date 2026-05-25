@@ -37,3 +37,6 @@ def list_job_analyses(db: Session, limit: int = 20) -> list[JobAnalysis]:
         .limit(limit)
         .all()
     )
+
+def get_job_analysis_by_id(db: Session, analysis_id: int) -> JobAnalysis | None:
+    return db.query(JobAnalysis).filter(JobAnalysis.id == analysis_id).first()

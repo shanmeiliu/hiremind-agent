@@ -27,3 +27,17 @@ class JobAnalysisListItem(BaseModel):
     recommendation: str
     decision: str
     match_score: int
+
+class JobAnalysisDetail(BaseModel):
+    id: int
+    job_title: str
+    company: str | None = None
+    recommendation: str
+    decision: str
+    decision_reason: str | None = None
+    match_score: int
+    job_description: str
+    resume_text: str
+    strengths: List[str]
+    missing_skills: List[str]
+    application_notes: List[str]
