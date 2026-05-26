@@ -22,7 +22,11 @@ def create_job_analysis(
         strengths=json.dumps(response.strengths),
         missing_skills=json.dumps(response.missing_skills),
         application_notes=json.dumps(response.application_notes),
-    )
+        decision_reason=response.decision_reason,
+        semantic_score=response.semantic_score,
+        semantic_strengths=json.dumps(response.semantic_strengths),
+        transferable_skills=json.dumps(response.transferable_skills),
+        )
 
     db.add(job_analysis)
     db.commit()

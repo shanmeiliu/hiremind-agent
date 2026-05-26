@@ -21,6 +21,11 @@ class JobAnalysis(Base):
 
     match_score = Column(Integer, nullable=False)
 
+    semantic_score = Column(Integer, nullable=True)
+    semantic_strengths = Column(Text, nullable=True)
+    transferable_skills = Column(Text, nullable=True)
+    decision_reason = Column(Text, nullable=True)
+
     job_description = Column(Text, nullable=False)
     resume_text = Column(Text, nullable=False)
 

@@ -73,7 +73,29 @@ TRACKED_SKILLS = [
     "llm",
     "openai",
 ]
+def parse_llm_json(content: str) -> dict:
+    content = content.strip()
 
+    if content.startswith("```json"):
+        content = content.removeprefix("```json").strip()
+
+    if content.startswith("```"):
+        content = content.removeprefix("```").strip()
+
+    if content.endswith("```"):
+        content = content.removesuffix("```").strip()
+
+    start = content.find("{")
+    end = content.rfind("}")
+
+    if start == -1 or end == -1 or end <= start:
+        return {}
+
+    try:
+        return json.loads(content[start:end + 1])
+    except Exception:
+        return {}
+    
 SKILL_ALIASES = {
     "aws lambda": ["lambda", "aws"],
     "eventbridge": ["aws", "event-driven"],
@@ -88,7 +110,7 @@ SKILL_ALIASES = {
 }
 def extract_json_array_from_llm(content: str, key: str) -> list[str]:
     try:
-        parsed = json.loads(content)
+        parsed = parse_llm_json(content)
         values = parsed.get(key, [])
 
         if not isinstance(values, list):
@@ -255,7 +277,7 @@ Resume text:
 
         response = llm.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
-        parsed = json.loads(content)
+        parsed = parse_llm_json(content)
 
         semantic_score = int(parsed.get("semantic_score", fallback_score))
         semantic_strengths = parsed.get("semantic_strengths", fallback_strengths)
@@ -391,7 +413,7 @@ Resume text:
         response = llm.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
 
-        parsed = json.loads(content)
+        parsed = parse_llm_json(content)
         notes = parsed.get("application_notes", [])
 
         if not isinstance(notes, list) or not notes:
@@ -452,21 +474,24 @@ def analyze_job_match(request: JobAnalyzeRequest) -> JobAnalyzeResponse:
     final_state = job_match_graph.invoke(initial_state)
 
     return JobAnalyzeResponse(
-        match_score=final_state["match_score"],
-        recommendation=final_state["recommendation"],
-        decision=final_state["decision"],
-        decision_reason=final_state["decision_reason"],
-        job_skills=final_state["job_keywords"],
-        resume_skills=final_state["resume_keywords"],
-        strengths=[
-            f"Experience matches job requirement: {skill}"
-            for skill in final_state["matched_skills"]
-        ],
-        missing_skills=[
-            f"Job mentions {skill}, but it was not found in resume text"
-            for skill in final_state["missing_skills"]
-        ],
-        application_notes=final_state["application_notes"],
+    match_score=final_state["match_score"],
+    recommendation=final_state["recommendation"],
+    decision=final_state["decision"],
+    decision_reason=final_state["decision_reason"],
+    semantic_score=final_state["semantic_score"],
+    semantic_strengths=final_state["semantic_strengths"],
+    transferable_skills=final_state["transferable_skills"],
+    job_skills=final_state["job_keywords"],
+    resume_skills=final_state["resume_keywords"],
+    strengths=[
+        f"Experience matches job requirement: {skill}"
+        for skill in final_state["matched_skills"]
+    ],
+    missing_skills=[
+        f"Job mentions {skill}, but it was not found in resume text"
+        for skill in final_state["missing_skills"]
+    ],
+    application_notes=final_state["application_notes"],
     )
 
 def skill_matches(job_skill: str, resume_skills: list[str]) -> bool:
