@@ -47,3 +47,7 @@ class JobAnalysisDetail(BaseModel):
     strengths: List[str]
     missing_skills: List[str]
     application_notes: List[str]
+
+class JobDecisionUpdateRequest(BaseModel):
+    decision: str
+    decision_reason: str | None = None

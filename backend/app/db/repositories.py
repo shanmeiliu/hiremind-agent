@@ -34,13 +34,43 @@ def create_job_analysis(
 
     return job_analysis
 
-def list_job_analyses(db: Session, limit: int = 20) -> list[JobAnalysis]:
+def list_job_analyses(
+    db: Session,
+    limit: int = 20,
+    decision: str | None = None,
+) -> list[JobAnalysis]:
+    query = db.query(JobAnalysis)
+
+    if decision is not None:
+        query = query.filter(JobAnalysis.decision == decision)
+
     return (
-        db.query(JobAnalysis)
+        query
         .order_by(JobAnalysis.created_at.desc())
         .limit(limit)
         .all()
     )
+
+def update_job_analysis_decision(
+    db: Session,
+    analysis_id: int,
+    decision: str,
+    decision_reason: str | None = None,
+) -> JobAnalysis | None:
+    job_analysis = get_job_analysis_by_id(db=db, analysis_id=analysis_id)
+
+    if job_analysis is None:
+        return None
+
+    job_analysis.decision = decision
+
+    if decision_reason is not None:
+        job_analysis.decision_reason = decision_reason
+
+    db.commit()
+    db.refresh(job_analysis)
+
+    return job_analysis
 
 def get_job_analysis_by_id(db: Session, analysis_id: int) -> JobAnalysis | None:
     return db.query(JobAnalysis).filter(JobAnalysis.id == analysis_id).first()
