@@ -1,4 +1,6 @@
 const SIDEBAR_ID = "hiremind-agent-sidebar";
+const RESUME_STORAGE_KEY = "hiremind_resume_text";
+const FONT_SIZE_KEY = "hiremind_font_size";
 
 type ExtractedJobPage = {
   jobTitle: string;
@@ -96,6 +98,42 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function applyFontSize(size: number) {
+  const sidebar = document.getElementById(SIDEBAR_ID);
+
+  if (!sidebar) {
+    return;
+  }
+
+  sidebar.style.fontSize = `${size}px`;
+}
+
+function updateFontSize(delta: number) {
+  chrome.storage.local.get([FONT_SIZE_KEY], (result) => {
+    let size =
+      typeof result[FONT_SIZE_KEY] === "number"
+        ? result[FONT_SIZE_KEY]
+        : 14;
+
+    size += delta;
+    size = Math.max(10, Math.min(24, size));
+
+    chrome.storage.local.set({
+      [FONT_SIZE_KEY]: size,
+    });
+
+    applyFontSize(size);
+  });
+}
+
+function resetFontSize() {
+  chrome.storage.local.set({
+    [FONT_SIZE_KEY]: 14,
+  });
+
+  applyFontSize(14);
+}
+
 function createSidebar() {
   if (document.getElementById(SIDEBAR_ID)) {
     return;
@@ -121,13 +159,50 @@ function createSidebar() {
       padding: 16px;
       overflow-y: auto;
       color: #111827;
+      line-height: 1.5;
     ">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h2 style="margin:0;">HireMind Agent</h2>
-        <button id="hiremind-close" style="font-size:18px;">×</button>
+        <button id="hiremind-close" style="
+          font-size:18px;
+          border:1px solid #9ca3af;
+          background:white;
+          border-radius:4px;
+          cursor:pointer;
+        ">×</button>
       </div>
 
-      <p style="color:#666;">Analyze this job page with AI.</p>
+      <p style="color:#666; margin-bottom:8px;">Analyze this job page with AI.</p>
+
+      <div style="
+        display:flex;
+        gap:8px;
+        align-items:center;
+        margin:8px 0 12px;
+      ">
+        <span style="font-weight:bold;">Text size:</span>
+        <button id="hiremind-font-down" style="
+          padding:4px 8px;
+          border:1px solid #d1d5db;
+          background:#f9fafb;
+          border-radius:6px;
+          cursor:pointer;
+        ">A-</button>
+        <button id="hiremind-font-reset" style="
+          padding:4px 8px;
+          border:1px solid #d1d5db;
+          background:#f9fafb;
+          border-radius:6px;
+          cursor:pointer;
+        ">A</button>
+        <button id="hiremind-font-up" style="
+          padding:4px 8px;
+          border:1px solid #d1d5db;
+          background:#f9fafb;
+          border-radius:6px;
+          cursor:pointer;
+        ">A+</button>
+      </div>
 
       <div style="
         margin-top: 12px;
@@ -145,7 +220,16 @@ function createSidebar() {
       <label style="display:block; margin-top:12px; font-weight:bold;">
         Resume Text
       </label>
-      <textarea id="hiremind-resume" style="width:100%; height:160px; margin-top:6px;"></textarea>
+      <textarea id="hiremind-resume" style="
+        width:100%;
+        height:160px;
+        margin-top:6px;
+        box-sizing:border-box;
+        font: inherit;
+        padding:8px;
+        border:1px solid #9ca3af;
+        border-radius:6px;
+      "></textarea>
 
       <button id="hiremind-analyze" style="
         width:100%;
@@ -157,6 +241,7 @@ function createSidebar() {
         border-radius:8px;
         font-weight:bold;
         cursor:pointer;
+        font: inherit;
       ">
         Analyze Current Page
       </button>
@@ -167,23 +252,44 @@ function createSidebar() {
 
   document.body.appendChild(sidebar);
 
-  const resumeTextarea = document.getElementById(
-  "hiremind-resume"
-    ) as HTMLTextAreaElement | null;
+  chrome.storage.local.get([FONT_SIZE_KEY], (result) => {
+    const size =
+      typeof result[FONT_SIZE_KEY] === "number"
+        ? result[FONT_SIZE_KEY]
+        : 14;
 
-  chrome.storage.local.get(["hiremind_resume_text"], (result) => {
-  const savedResumeText = result.hiremind_resume_text;
-
-if (resumeTextarea && typeof savedResumeText === "string") {
-  resumeTextarea.value = savedResumeText;
-}
-});
-
-resumeTextarea?.addEventListener("input", () => {
-  chrome.storage.local.set({
-    hiremind_resume_text: resumeTextarea.value,
+    applyFontSize(size);
   });
-});
+
+  const resumeTextarea = document.getElementById(
+    "hiremind-resume"
+  ) as HTMLTextAreaElement | null;
+
+  chrome.storage.local.get([RESUME_STORAGE_KEY], (result) => {
+    const savedResumeText = result[RESUME_STORAGE_KEY];
+
+    if (resumeTextarea && typeof savedResumeText === "string") {
+      resumeTextarea.value = savedResumeText;
+    }
+  });
+
+  resumeTextarea?.addEventListener("input", () => {
+    chrome.storage.local.set({
+      [RESUME_STORAGE_KEY]: resumeTextarea.value,
+    });
+  });
+
+  document.getElementById("hiremind-font-up")?.addEventListener("click", () => {
+    updateFontSize(1);
+  });
+
+  document.getElementById("hiremind-font-down")?.addEventListener("click", () => {
+    updateFontSize(-1);
+  });
+
+  document.getElementById("hiremind-font-reset")?.addEventListener("click", () => {
+    resetFontSize();
+  });
 
   document.getElementById("hiremind-close")?.addEventListener("click", () => {
     sidebar.remove();
@@ -191,7 +297,7 @@ resumeTextarea?.addEventListener("input", () => {
 
   document.getElementById("hiremind-analyze")?.addEventListener("click", async () => {
     const resultBox = document.getElementById("hiremind-result");
-    const resumeText = (document.getElementById("hiremind-resume") as HTMLTextAreaElement).value;
+    const resumeText = resumeTextarea?.value || "";
 
     if (!resultBox) return;
 
@@ -225,9 +331,9 @@ resumeTextarea?.addEventListener("input", () => {
       const data = await response.json();
 
       resultBox.innerHTML = `
-        <h3>${data.match_score}% — ${escapeHtml(data.recommendation)}</h3>
-        <p><strong>Decision:</strong> ${escapeHtml(data.decision)}</p>
-        <p>${escapeHtml(data.decision_reason)}</p>
+        <h3 style="margin-bottom:4px;">${data.match_score}% — ${escapeHtml(data.recommendation)}</h3>
+        <p style="margin:4px 0;"><strong>Decision:</strong> ${escapeHtml(data.decision)}</p>
+        <p style="margin-top:4px;">${escapeHtml(data.decision_reason)}</p>
 
         <h4>Semantic Score</h4>
         <p>${data.semantic_score ?? "N/A"}</p>
