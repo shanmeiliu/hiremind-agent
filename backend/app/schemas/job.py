@@ -29,6 +29,7 @@ class JobAnalysisListItem(BaseModel):
     company: str | None = None
     recommendation: str
     decision: str
+    status: str
     match_score: int
 
 class JobAnalysisDetail(BaseModel):
@@ -37,6 +38,7 @@ class JobAnalysisDetail(BaseModel):
     company: str | None = None
     recommendation: str
     decision: str
+    status: str
     decision_reason: str | None = None
     match_score: int
     semantic_score: int | None = None

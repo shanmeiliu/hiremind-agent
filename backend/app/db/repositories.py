@@ -16,6 +16,7 @@ def create_job_analysis(
         company=request.company,
         recommendation=response.recommendation,
         decision=response.decision,
+        status="saved",
         match_score=response.match_score,
         job_description=request.job_description,
         resume_text=request.resume_text,

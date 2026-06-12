@@ -18,7 +18,7 @@ class JobAnalysis(Base):
 
     recommendation = Column(String, nullable=False)
     decision = Column(String, nullable=False)
-
+    status = Column(String, nullable=False, default="saved")
     match_score = Column(Integer, nullable=False)
 
     semantic_score = Column(Integer, nullable=True)
