@@ -51,8 +51,8 @@ class JobAnalysisDetail(BaseModel):
     semantic_score: int | None = None
     semantic_strengths: List[str]
     transferable_skills: List[str]
-    job_description: str
-    resume_text: str
+    job_description: str | None = None
+    resume_text: str | None = None
     strengths: List[str]
     missing_skills: List[str]
     application_notes: List[str]
@@ -60,3 +60,7 @@ class JobAnalysisDetail(BaseModel):
 class JobDecisionUpdateRequest(BaseModel):
     decision: str
     decision_reason: str | None = None
+
+
+class JobStatusUpdateRequest(BaseModel):
+    status: str

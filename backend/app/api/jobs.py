@@ -5,6 +5,7 @@ from app.db.repositories import (
     list_job_analyses,
     get_job_analysis_by_id,
     update_job_analysis_decision,
+    update_job_analysis_status
 )
 from app.schemas.job import (
     JobAnalyzeRequest,
@@ -12,6 +13,7 @@ from app.schemas.job import (
     JobAnalysisListItem,
     JobAnalysisDetail,
     JobDecisionUpdateRequest,
+    JobStatusUpdateRequest
 )
 from sqlalchemy.orm import Session
 from typing import List
@@ -156,4 +158,58 @@ async def update_job_decision(
         source=item.source,
         job_key=item.job_key,
         status=item.status,
+    )
+
+@router.patch("/analyses/{analysis_id}/status", response_model=JobAnalysisDetail)
+async def update_job_status(
+    analysis_id: int,
+    request: JobStatusUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    allowed_statuses = {
+        "saved",
+        "applied",
+        "interview",
+        "final_round",
+        "offer",
+        "rejected",
+        "withdrawn",
+        "ghosted",
+    }
+
+    if request.status not in allowed_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail="Status must be one of: saved, applied, interview, final_round, offer, rejected, withdrawn, ghosted",
+        )
+
+    item = update_job_analysis_status(
+        db=db,
+        analysis_id=analysis_id,
+        status=request.status,
+    )
+
+    if item is None:
+        raise HTTPException(status_code=404, detail="Job analysis not found")
+
+    return JobAnalysisDetail(
+        id=item.id,
+        job_title=item.job_title,
+        company=item.company,
+        job_url=item.job_url,
+        source=item.source,
+        job_key=item.job_key,
+        recommendation=item.recommendation,
+        decision=item.decision,
+        status=item.status,
+        decision_reason=item.decision_reason,
+        match_score=item.match_score,
+        semantic_score=item.semantic_score,
+        semantic_strengths=json.loads(item.semantic_strengths or "[]"),
+        transferable_skills=json.loads(item.transferable_skills or "[]"),
+        job_description=item.job_description,
+        resume_text=item.resume_text,
+        strengths=json.loads(item.strengths or "[]"),
+        missing_skills=json.loads(item.missing_skills or "[]"),
+        application_notes=json.loads(item.application_notes or "[]"),
     )

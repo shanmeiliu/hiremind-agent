@@ -29,8 +29,8 @@ class JobAnalysis(Base):
     transferable_skills = Column(Text, nullable=True)
     decision_reason = Column(Text, nullable=True)
 
-    job_description = Column(Text, nullable=False)
-    resume_text = Column(Text, nullable=False)
+    job_description = Column(Text, nullable=True)
+    resume_text = Column(Text, nullable=True)
 
     strengths = Column(Text, nullable=True)
     missing_skills = Column(Text, nullable=True)
