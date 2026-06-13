@@ -319,6 +319,8 @@ function createSidebar() {
         body: JSON.stringify({
           job_title: latestJob.jobTitle,
           company: latestJob.company,
+          job_url: window.location.href,
+          source: latestJob.source,
           job_description: latestJob.jobDescription,
           resume_text: resumeText
         })

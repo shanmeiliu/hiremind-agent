@@ -70,8 +70,11 @@ async def get_job_analyses(
             id=item.id,
             job_title=item.job_title,
             company=item.company,
+            job_url=item.job_url,
+            source=item.source,
             recommendation=item.recommendation,
             decision=item.decision,
+            status=item.status,
             match_score=item.match_score,
         )
         for item in analyses
@@ -103,6 +106,10 @@ async def get_job_analysis(
         strengths=json.loads(item.strengths or "[]"),
         missing_skills=json.loads(item.missing_skills or "[]"),
         application_notes=json.loads(item.application_notes or "[]"),
+        job_url=item.job_url,
+        source=item.source,
+        job_key=item.job_key,
+        status=item.status,
     )
 
 @router.patch("/analyses/{analysis_id}/decision", response_model=JobAnalysisDetail)
@@ -145,4 +152,8 @@ async def update_job_decision(
         strengths=json.loads(item.strengths or "[]"),
         missing_skills=json.loads(item.missing_skills or "[]"),
         application_notes=json.loads(item.application_notes or "[]"),
+        job_url=item.job_url,
+        source=item.source,
+        job_key=item.job_key,
+        status=item.status,
     )

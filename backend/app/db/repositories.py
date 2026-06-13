@@ -1,9 +1,23 @@
 import json
-
+import hashlib
 from sqlalchemy.orm import Session
 
 from app.db.models import JobAnalysis
 from app.schemas.job import JobAnalyzeRequest, JobAnalyzeResponse
+
+
+def build_job_key(
+    job_title: str,
+    company: str | None = None,
+    job_url: str | None = None,
+    source: str | None = None,
+) -> str:
+    if job_url:
+        raw_key = f"{source or 'unknown'}:{job_url.strip().lower()}"
+    else:
+        raw_key = f"{source or 'manual'}:{company or ''}:{job_title}".strip().lower()
+
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
 
 def create_job_analysis(
@@ -11,25 +25,45 @@ def create_job_analysis(
     request: JobAnalyzeRequest,
     response: JobAnalyzeResponse,
 ) -> JobAnalysis:
-    job_analysis = JobAnalysis(
+    job_key = build_job_key(
         job_title=request.job_title,
         company=request.company,
-        recommendation=response.recommendation,
-        decision=response.decision,
-        status="saved",
-        match_score=response.match_score,
-        job_description=request.job_description,
-        resume_text=request.resume_text,
-        strengths=json.dumps(response.strengths),
-        missing_skills=json.dumps(response.missing_skills),
-        application_notes=json.dumps(response.application_notes),
-        decision_reason=response.decision_reason,
-        semantic_score=response.semantic_score,
-        semantic_strengths=json.dumps(response.semantic_strengths),
-        transferable_skills=json.dumps(response.transferable_skills),
-        )
+        job_url=request.job_url,
+        source=request.source,
+    )
 
-    db.add(job_analysis)
+    job_analysis = (
+        db.query(JobAnalysis)
+        .filter(JobAnalysis.job_key == job_key)
+        .first()
+    )
+
+    if job_analysis is None:
+        job_analysis = JobAnalysis(
+            job_title=request.job_title,
+            company=request.company,
+            job_url=request.job_url,
+            source=request.source,
+            job_key=job_key,
+            status="saved",
+        )
+        db.add(job_analysis)
+
+    job_analysis.recommendation = response.recommendation
+    job_analysis.decision = response.decision
+    job_analysis.decision_reason = response.decision_reason
+    job_analysis.match_score = response.match_score
+    job_analysis.semantic_score = response.semantic_score
+
+    job_analysis.job_description = request.job_description
+    job_analysis.resume_text = request.resume_text
+
+    job_analysis.strengths = json.dumps(response.strengths)
+    job_analysis.missing_skills = json.dumps(response.missing_skills)
+    job_analysis.application_notes = json.dumps(response.application_notes)
+    job_analysis.semantic_strengths = json.dumps(response.semantic_strengths)
+    job_analysis.transferable_skills = json.dumps(response.transferable_skills)
+
     db.commit()
     db.refresh(job_analysis)
 

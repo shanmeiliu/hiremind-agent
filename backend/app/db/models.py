@@ -15,6 +15,9 @@ class JobAnalysis(Base):
 
     job_title = Column(String, nullable=False)
     company = Column(String, nullable=True)
+    job_url = Column(Text, nullable=True)
+    source = Column(String, nullable=True)
+    job_key = Column(String, nullable=True, unique=True, index=True)
 
     recommendation = Column(String, nullable=False)
     decision = Column(String, nullable=False)

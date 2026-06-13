@@ -5,6 +5,8 @@ from typing import List
 class JobAnalyzeRequest(BaseModel):
     job_title: str
     company: str | None = None
+    job_url: str | None = None
+    source: str | None = None
     job_description: str
     resume_text: str
 
@@ -30,6 +32,8 @@ class JobAnalysisListItem(BaseModel):
     recommendation: str
     decision: str
     status: str
+    job_url: str | None = None
+    source: str | None = None
     match_score: int
 
 class JobAnalysisDetail(BaseModel):
@@ -38,6 +42,9 @@ class JobAnalysisDetail(BaseModel):
     company: str | None = None
     recommendation: str
     decision: str
+    job_url: str | None = None
+    source: str | None = None
+    job_key: str | None = None
     status: str
     decision_reason: str | None = None
     match_score: int
