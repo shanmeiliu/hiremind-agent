@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from urllib import response
 from fastapi import APIRouter, Depends, HTTPException
 from app.db.repositories import (
@@ -52,73 +53,6 @@ async def analyze_job(
 
     return response
 
-@router.get("/analyses", response_model=List[JobAnalysisListItem])
-async def get_job_analyses(
-    limit: int = 20,
-    decision: str | None = None,
-    db: Session = Depends(get_db),
-):
-    allowed_decisions = {"apply", "maybe", "skip"}
-
-    if decision is not None and decision not in allowed_decisions:
-        raise HTTPException(
-            status_code=400,
-            detail="Decision must be one of: apply, maybe, skip",
-        )
-
-    analyses = list_job_analyses(
-        db=db,
-        limit=limit,
-        decision=decision,
-    )
-
-    return [
-        JobAnalysisListItem(
-            id=item.id,
-            job_title=item.job_title,
-            company=item.company,
-            job_url=item.job_url,
-            source=item.source,
-            recommendation=item.recommendation,
-            decision=item.decision,
-            status=item.status,
-            match_score=item.match_score,
-        )
-        for item in analyses
-    ]
-
-@router.get("/analyses/{analysis_id}", response_model=JobAnalysisDetail)
-async def get_job_analysis(
-    analysis_id: int,
-    db: Session = Depends(get_db),
-):
-    item = get_job_analysis_by_id(db=db, analysis_id=analysis_id)
-
-    if item is None:
-        raise HTTPException(status_code=404, detail="Job analysis not found")
-
-    return JobAnalysisDetail(
-        id=item.id,
-        job_title=item.job_title,
-        company=item.company,
-        recommendation=item.recommendation,
-        decision=item.decision,
-        decision_reason=item.decision_reason,
-        match_score=item.match_score,
-        semantic_score=item.semantic_score,
-        semantic_strengths=json.loads(item.semantic_strengths or "[]"),
-        transferable_skills=json.loads(item.transferable_skills or "[]"),
-        job_description=item.job_description,
-        resume_text=item.resume_text,
-        strengths=json.loads(item.strengths or "[]"),
-        missing_skills=json.loads(item.missing_skills or "[]"),
-        application_notes=json.loads(item.application_notes or "[]"),
-        job_url=item.job_url,
-        source=item.source,
-        job_key=item.job_key,
-        status=item.status,
-    )
-
 @router.patch("/analyses/{analysis_id}/decision", response_model=JobAnalysisDetail)
 async def update_job_decision(
     analysis_id: int,
@@ -168,6 +102,68 @@ async def update_job_decision(
 @router.get("/stats", response_model=JobStatusStatsResponse)
 async def get_job_stats(db: Session = Depends(get_db)):
     return get_job_status_stats(db=db)
+
+@router.get("/analyses", response_model=List[JobAnalysisListItem])
+async def get_job_analyses(
+    limit: int = 20,
+    decision: str | None = None,
+    status: str | None = None,
+    source: str | None = None,
+    search: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    db: Session = Depends(get_db),
+):
+    allowed_decisions = {"apply", "maybe", "skip"}
+    allowed_statuses = {
+        "saved",
+        "applied",
+        "interview",
+        "final_round",
+        "offer",
+        "rejected",
+        "withdrawn",
+        "ghosted",
+    }
+
+    if decision is not None and decision not in allowed_decisions:
+        raise HTTPException(
+            status_code=400,
+            detail="Decision must be one of: apply, maybe, skip",
+        )
+
+    if status is not None and status not in allowed_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail="Status must be one of: saved, applied, interview, final_round, offer, rejected, withdrawn, ghosted",
+        )
+
+    analyses = list_job_analyses(
+        db=db,
+        limit=limit,
+        decision=decision,
+        status=status,
+        source=source,
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    return [
+        JobAnalysisListItem(
+            id=item.id,
+            job_title=item.job_title,
+            company=item.company,
+            job_url=item.job_url,
+            source=item.source,
+            recommendation=item.recommendation,
+            decision=item.decision,
+            status=item.status,
+            match_score=item.match_score,
+            created_at=item.created_at,
+        )
+        for item in analyses
+    ]
 
 @router.patch("/analyses/{analysis_id}/status", response_model=JobAnalysisDetail)
 async def update_job_status(

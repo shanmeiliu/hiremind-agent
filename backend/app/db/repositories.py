@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 import hashlib
 from sqlalchemy.orm import Session
@@ -73,11 +74,19 @@ def list_job_analyses(
     db: Session,
     limit: int = 20,
     decision: str | None = None,
+    status: str | None = None,
+    source: str | None = None,
+    search: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
 ) -> list[JobAnalysis]:
     query = db.query(JobAnalysis)
 
     if decision is not None:
         query = query.filter(JobAnalysis.decision == decision)
+
+    if status is not None:
+        query = query.filter(JobAnalysis.status == status)
 
     return (
         query

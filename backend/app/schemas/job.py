@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List
+from datetime import datetime
 
 
 class JobAnalyzeRequest(BaseModel):
@@ -39,6 +40,7 @@ class JobAnalysisListItem(BaseModel):
     job_url: str | None = None
     source: str | None = None
     match_score: int
+    created_at: datetime | None = None
 
 class JobAnalysisDetail(BaseModel):
     id: int
@@ -60,6 +62,7 @@ class JobAnalysisDetail(BaseModel):
     strengths: List[str]
     missing_skills: List[str]
     application_notes: List[str]
+    created_at: datetime | None = None
 
 class JobDecisionUpdateRequest(BaseModel):
     decision: str
