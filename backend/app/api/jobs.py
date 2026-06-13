@@ -6,7 +6,8 @@ from app.db.repositories import (
     list_job_analyses,
     get_job_analysis_by_id,
     update_job_analysis_decision,
-    update_job_analysis_status
+    update_job_analysis_status,
+    get_job_status_stats
 )
 from app.schemas.job import (
     JobAnalyzeRequest,
@@ -14,7 +15,8 @@ from app.schemas.job import (
     JobAnalysisListItem,
     JobAnalysisDetail,
     JobDecisionUpdateRequest,
-    JobStatusUpdateRequest
+    JobStatusUpdateRequest,
+    JobStatusStatsResponse
 )
 from sqlalchemy.orm import Session
 from typing import List
@@ -162,6 +164,10 @@ async def update_job_decision(
         job_key=item.job_key,
         status=item.status,
     )
+
+@router.get("/stats", response_model=JobStatusStatsResponse)
+async def get_job_stats(db: Session = Depends(get_db)):
+    return get_job_status_stats(db=db)
 
 @router.patch("/analyses/{analysis_id}/status", response_model=JobAnalysisDetail)
 async def update_job_status(

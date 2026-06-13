@@ -126,3 +126,43 @@ def update_job_analysis_status(
     db.refresh(job_analysis)
 
     return job_analysis
+
+
+def get_job_status_stats(db: Session) -> dict[str, int | float]:
+    statuses = [
+        "saved",
+        "applied",
+        "interview",
+        "final_round",
+        "offer",
+        "rejected",
+        "withdrawn",
+        "ghosted",
+    ]
+
+    total = db.query(JobAnalysis).count()
+
+    result: dict[str, int | float] = {"total": total}
+
+    for status in statuses:
+        result[status] = (
+            db.query(JobAnalysis)
+            .filter(JobAnalysis.status == status)
+            .count()
+        )
+
+    applied_count = int(result["applied"])
+    interview_count = int(result["interview"]) + int(result["final_round"]) + int(result["offer"])
+    offer_count = int(result["offer"])
+
+    result["interview_rate"] = round(
+        interview_count / applied_count,
+        4,
+    ) if applied_count else 0.0
+
+    result["offer_rate"] = round(
+        offer_count / applied_count,
+        4,
+    ) if applied_count else 0.0
+
+    return result

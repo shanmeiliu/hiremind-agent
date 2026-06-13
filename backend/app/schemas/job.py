@@ -19,12 +19,15 @@ class JobAnalyzeResponse(BaseModel):
     decision_reason: str
     semantic_score: int
     semantic_strengths: List[str]
+    # JobAnalyzeResponse
+    status: str | None = None
     transferable_skills: List[str]
     job_skills: List[str]
     resume_skills: List[str]
     strengths: List[str]
     missing_skills: List[str]
     application_notes: List[str]
+    
 
 class JobAnalysisListItem(BaseModel):
     id: int
@@ -65,3 +68,16 @@ class JobDecisionUpdateRequest(BaseModel):
 
 class JobStatusUpdateRequest(BaseModel):
     status: str
+
+class JobStatusStatsResponse(BaseModel):
+    total: int
+    saved: int
+    applied: int
+    interview: int
+    final_round: int
+    offer: int
+    rejected: int
+    withdrawn: int
+    ghosted: int
+    interview_rate: float
+    offer_rate: float

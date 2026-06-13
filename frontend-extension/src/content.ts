@@ -134,6 +134,18 @@ function resetFontSize() {
   applyFontSize(14);
 }
 
+function highlightStatusButton(status: string) {
+  document.querySelectorAll(".hiremind-status-btn").forEach((button) => {
+    const statusButton = button as HTMLButtonElement;
+    const isActive = statusButton.dataset.status === status;
+
+    statusButton.style.background = isActive ? "#111827" : "#f9fafb";
+    statusButton.style.color = isActive ? "white" : "#111827";
+    statusButton.style.borderColor = isActive ? "#111827" : "#d1d5db";
+    statusButton.style.fontWeight = isActive ? "700" : "400";
+  });
+}
+
 function createSidebar() {
   if (document.getElementById(SIDEBAR_ID)) {
     return;
@@ -418,6 +430,7 @@ resultBox.innerHTML = `
 
         if (statusMessage) {
           statusMessage.textContent = `Status updated to ${status}.`;
+          highlightStatusButton(status);
         }
       } catch (error) {
         if (statusMessage) {
@@ -427,7 +440,9 @@ resultBox.innerHTML = `
       }
     });
   });
-}} catch (error) {
+}
+highlightStatusButton(data.status || "saved");
+} catch (error) {
       resultBox.innerHTML = `<p style="color:#b91c1c;">${escapeHtml(
         error instanceof Error ? error.message : "Failed to analyze page"
       )}</p>`;
