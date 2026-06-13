@@ -332,30 +332,102 @@ function createSidebar() {
 
       const data = await response.json();
 
-      resultBox.innerHTML = `
-        <h3 style="margin-bottom:4px;">${data.match_score}% — ${escapeHtml(data.recommendation)}</h3>
-        <p style="margin:4px 0;"><strong>Decision:</strong> ${escapeHtml(data.decision)}</p>
-        <p style="margin-top:4px;">${escapeHtml(data.decision_reason)}</p>
+      const analysisId = data.analysis_id;
 
-        <h4>Semantic Score</h4>
-        <p>${data.semantic_score ?? "N/A"}</p>
+resultBox.innerHTML = `
+  <h3 style="margin-bottom:4px;">${data.match_score}% — ${escapeHtml(data.recommendation)}</h3>
+  <p style="margin:4px 0;"><strong>Decision:</strong> ${escapeHtml(data.decision)}</p>
+  <p style="margin-top:4px;">${escapeHtml(data.decision_reason)}</p>
 
-        <h4>Application Notes</h4>
-        <ul>
-          ${data.application_notes.map((note: string) => `<li>${escapeHtml(note)}</li>`).join("")}
-        </ul>
+  ${
+    analysisId
+      ? `
+        <h4>Update Status</h4>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          ${["saved", "applied", "interview", "offer", "rejected"]
+            .map(
+              (status) => `
+                <button
+                  class="hiremind-status-btn"
+                  data-status="${status}"
+                  style="
+                    padding:6px 8px;
+                    border:1px solid #d1d5db;
+                    background:#f9fafb;
+                    border-radius:6px;
+                    cursor:pointer;
+                    font:inherit;
+                  "
+                >
+                  ${status}
+                </button>
+              `
+            )
+            .join("")}
+        </div>
+        <p id="hiremind-status-message" style="font-size:12px;color:#6b7280;"></p>
+      `
+      : ""
+  }
 
-        <h4>Transferable Skills</h4>
-        <ul>
-          ${data.transferable_skills.map((skill: string) => `<li>${escapeHtml(skill)}</li>`).join("")}
-        </ul>
+  <h4>Semantic Score</h4>
+  <p>${data.semantic_score ?? "N/A"}</p>
 
-        <h4>Missing Skills</h4>
-        <ul>
-          ${data.missing_skills.map((skill: string) => `<li>${escapeHtml(skill)}</li>`).join("")}
-        </ul>
-      `;
-    } catch (error) {
+  <h4>Application Notes</h4>
+  <ul>
+    ${data.application_notes.map((note: string) => `<li>${escapeHtml(note)}</li>`).join("")}
+  </ul>
+
+  <h4>Transferable Skills</h4>
+  <ul>
+    ${data.transferable_skills.map((skill: string) => `<li>${escapeHtml(skill)}</li>`).join("")}
+  </ul>
+
+  <h4>Missing Skills</h4>
+  <ul>
+    ${data.missing_skills.map((skill: string) => `<li>${escapeHtml(skill)}</li>`).join("")}
+  </ul>
+`;
+    if (analysisId) {
+  document.querySelectorAll(".hiremind-status-btn").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const status = (button as HTMLButtonElement).dataset.status;
+      const statusMessage = document.getElementById("hiremind-status-message");
+
+      if (!status) return;
+
+      if (statusMessage) {
+        statusMessage.textContent = `Updating status to ${status}...`;
+      }
+
+      try {
+        const statusResponse = await fetch(
+          `http://127.0.0.1:8000/api/jobs/analyses/${analysisId}/status`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status }),
+          }
+        );
+
+        if (!statusResponse.ok) {
+          throw new Error(`Status update failed: ${statusResponse.status}`);
+        }
+
+        if (statusMessage) {
+          statusMessage.textContent = `Status updated to ${status}.`;
+        }
+      } catch (error) {
+        if (statusMessage) {
+          statusMessage.textContent =
+            error instanceof Error ? error.message : "Failed to update status.";
+        }
+      }
+    });
+  });
+}} catch (error) {
       resultBox.innerHTML = `<p style="color:#b91c1c;">${escapeHtml(
         error instanceof Error ? error.message : "Failed to analyze page"
       )}</p>`;

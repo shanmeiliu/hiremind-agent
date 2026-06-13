@@ -1,4 +1,5 @@
 import json
+from urllib import response
 from fastapi import APIRouter, Depends, HTTPException
 from app.db.repositories import (
     create_job_analysis,
@@ -39,11 +40,13 @@ async def analyze_job(
 ):
     response = analyze_job_match(request)
 
-    create_job_analysis(
-        db=db,
-        request=request,
-        response=response,
-    )
+    saved_analysis = create_job_analysis(
+    db=db,
+    request=request,
+    response=response,
+)
+
+    response.analysis_id = saved_analysis.id
 
     return response
 

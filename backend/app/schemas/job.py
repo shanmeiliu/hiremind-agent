@@ -12,6 +12,7 @@ class JobAnalyzeRequest(BaseModel):
 
 
 class JobAnalyzeResponse(BaseModel):
+    analysis_id: int | None = None
     match_score: int
     recommendation: str
     decision: str
